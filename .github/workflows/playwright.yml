@@ -39,7 +39,8 @@ jobs:
     name: Run Playwright Tests
     runs-on: ubuntu-latest          # free Linux VM from GitHub
     timeout-minutes: 15             # kill if stuck longer than 15 min
-
+    environment: develop
+    
     steps:
       # ── Step 1: Check out your code ──
       # This pulls your repo onto the VM so the rest can use it.
