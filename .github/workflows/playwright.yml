@@ -1,0 +1,112 @@
+# ============================================================
+#  Playwright CI — GitHub Actions Workflow
+# ============================================================
+#  📁 Save this file as:  .github/workflows/playwright.yml
+#
+#  What this does:
+#    1. Spins up an Ubuntu machine in the cloud
+#    2. Installs Node.js, your project deps, and browsers
+#    3. Starts a local server to host your training site
+#    4. Runs all Playwright tests
+#    5. Uploads an HTML report you can download & view
+#
+#  The HTML report is saved as an "Artifact" on the Actions
+#  tab — click the workflow run → scroll to Artifacts → download.
+# ============================================================
+
+name: 🎭 Playwright Tests
+
+# ──────────────────────────────────────────────
+#  WHEN does this workflow run?
+# ──────────────────────────────────────────────
+on:
+  # Every push to main or master
+  push:
+    branches: [main, master]
+
+  # Every pull request targeting main or master
+  pull_request:
+    branches: [main, master]
+
+  # Manual trigger — click "Run workflow" in the Actions tab
+  workflow_dispatch:
+
+# ──────────────────────────────────────────────
+#  JOBS — the actual steps that run
+# ──────────────────────────────────────────────
+jobs:
+  playwright-tests:
+    name: Run Playwright Tests
+    runs-on: ubuntu-latest          # free Linux VM from GitHub
+    timeout-minutes: 15             # kill if stuck longer than 15 min
+
+    steps:
+      # ── Step 1: Check out your code ──
+      # This pulls your repo onto the VM so the rest can use it.
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Step 2: Set up Node.js ──
+      # Playwright needs Node. We pick version 22 (LTS).
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # ── Step 3: Install project dependencies ──
+      # Runs "npm ci" which is like "npm install" but faster
+      # and stricter — it uses the exact versions in package-lock.json.
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      # ── Step 4: Install Playwright browsers ──
+      # Downloads Chromium, Firefox, and WebKit so tests can run.
+      # --with-deps also installs OS-level libraries they need.
+      - name: 🌐 Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      # ── Step 5: Run the tests ──
+      # "npx serve" starts a local server in the background on port 3000
+      # so the training site is accessible during tests.
+      # The HTML reporter generates a browsable report in playwright-report/.
+      #
+      # 💡 If your site is already deployed somewhere, remove the
+      #    "npx serve" line and update baseURL in playwright.config.ts.
+      - name: 🧪 Run Playwright tests
+        run: |
+          # Start a static file server in the background
+          # npx serve . -l 3000 &
+
+          # Give the server a moment to start
+          # sleep 3
+
+          # Run all tests
+          npx playwright test
+        env:
+          CI: true
+          BASE_URL: ${{ vars.BASE_URL }}
+          LAB_USER: ${{ vars.LAB_USER }}
+          LAB_PASS: ${{ vars.LAB_PASS }}
+
+      # ── Step 6: Upload the HTML report ──
+      # Even if tests fail, we still want the report.
+      # "if: always()" ensures this step runs no matter what.
+      # The report is saved as a downloadable artifact for 30 days.
+      - name: 📊 Upload HTML Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-html-report
+          path: playwright-report/
+          retention-days: 30
+
+      # ── Step 7: Upload test results (optional) ──
+      # JUnit XML results can be consumed by other tools or
+      # GitHub's own test summary feature.
+      - name: 📋 Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-test-results
+          path: test-results/
+          retention-days: 30
